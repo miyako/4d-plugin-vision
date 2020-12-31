@@ -5,3 +5,5 @@
 
 # 4d-plugin-vision
 Use Vision API (macOS).
+
+To use on v16 or v17, move manifest.json to contents.
