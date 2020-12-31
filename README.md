@@ -6,4 +6,4 @@
 # 4d-plugin-vision
 Use [Vision](https://developer.apple.com/documentation/vision?language=objc) API (macOS).
 
-To use on v16 or v17, move manifest.json to contents.
+To use on v17, move manifest.json to contents.
