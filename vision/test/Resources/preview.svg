@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--#4dcode
+
+	$image:=$1
+	$results:=$2
+
+	C_BLOB($data)
+	PICTURE TO BLOB($image;$data;"image/png")
+	C_TEXT($imageData)
+	BASE64 ENCODE($data;$imageData)
+
+	PICTURE PROPERTIES($image;$imageWidth;$imageHeight)
+
+	ARRAY TEXT($targets;8)
+
+	$targets{1}:="faces"
+	$targets{2}:="texts"
+	$targets{3}:="horizon"
+	$targets{4}:="barcodes"
+	$targets{5}:="rects"
+	$targets{6}:="recognizedTexts"
+	$targets{7}:="humans"
+	$targets{8}:="faceLandmarks"
+
+	$default:=New object("fill";"none";"stroke";"blue";"fillOpacity";1)
+-->
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	version="1.1"
+	width="$4dtext($imageWidth)"
+	height="$4dtext($imageHeight)">
+
+	<image id="image" x="0" y="0" width="$4dtext($imageWidth)" height="$4dtext($imageHeight)" xlink:href="data:image/png;base64,$4dtext($imageData)" />
+
+	<!--#4dloop $targets-->
+		<!--#4dcode
+			C_COLLECTION($target)
+			C_LONGINT($i;$len)
+			$target:=$results[$targets{$targets}]
+			$i:=0
+			$len:=$target.length
+		-->
+
+		<!--#4dloop $i<$len-->
+			<!--#4dcode
+				C_OBJECT($obj)
+				$obj:=$target[$i]
+				$x:=$obj.x;
+				$y:=$obj.y;
+				$width:=$obj.width;
+				$height:=$obj.height;
+				$stroke:=$default.stroke
+				$fill:=$default.fill
+				$fillOpacity:=$default.fillOpacity
+				If($obj.fill#Null:C1517)
+					$fill:=$obj.fill
+				End if
+				If($obj.fillOpacity#Null:C1517)
+					$fillOpacity:=$obj.fillOpacity
+				End if
+				If($obj.stroke#Null:C1517)
+					$stroke:=$obj.stroke
+				End if
+				$i:=$i+1
+			-->
+			<g transform="scale($4dtext($imageWidth),$4dtext($imageHeight))">
+				<rect id="$4dtext($targets{$targets})-$4dtext($i)" fill-opacity="$4dtext($fillOpacity)" fill="$4dtext($fill)" stroke="$4dtext($stroke)" x="$4dtext($x)" y="$4dtext($y)" width="$4dtext($width)" height="$4dtext($height)" stroke-width="1px" vector-effect="non-scaling-stroke" />
+				<!--#4dcode
+					C_LONGINT($i2;$len2)
+					C_COLLECTION($characters)
+					$characters:=$obj.characters
+					$i2:=0
+					$len2:=$characters.length
+				-->
+				<!--#4dloop $i2<$len2-->
+				<!--#4dcode
+					$stroke:=$default.stroke
+					$fill:=$default.fill
+					$fillOpacity:=$default.fillOpacity
+
+					$obj2:=$characters[$i2]
+
+					If($obj2.fill#Null:C1517)
+						$fill:=$obj2.fill
+					End if
+					If($obj2.fillOpacity#Null:C1517)
+						$fillOpacity:=$obj2.fillOpacity
+					End if
+					If($obj2.stroke#Null:C1517)
+						$stroke:=$obj2.stroke
+					End if
+					$i2:=$i2+1
+					-->
+					<rect id="$4dtext($targets{$targets})-$4dtext($i)-character-$4dtext($i2)" fill-opacity="$4dtext($fillOpacity)" fill="$4dtext($fill)" stroke="$4dtext($stroke)" x="$4dtext($obj2.x)" y="$4dtext($obj2.y)" width="$4dtext($obj2.width)" height="$4dtext($obj2.height)" stroke-width="1px" vector-effect="non-scaling-stroke" />
+					<!--#4dendloop-->
+			</g>
+
+			<g transform="translate($4dtext($x*$imageWidth),$4dtext($y*$imageHeight)) scale($4dtext($width*$imageWidth),$4dtext($height*$imageHeight))">
+				<!--#4dcode
+					C_LONGINT($i2;$len2)
+					C_COLLECTION($parts)
+					$parts:=$obj.parts
+					$i2:=0
+					$len2:=$parts.length
+				-->
+				<!--#4dloop $i2<$len2-->
+					<!--#4dcode
+						$stroke:=$default.stroke
+						$obj2:=$parts[$i2]
+						C_TEXT($points)
+						$points:=$obj2.points
+						If($obj2.stroke#Null:C1517)
+							$stroke:=$obj2.stroke
+						End if
+						$i2:=$i2+1
+					-->
+					<polyline points="$4dtext($points)" id="$4dtext($targets{$targets})-$4dtext($i)-part-$4dtext($obj2.type)" fill="none" stroke="$4dtext($stroke)" stroke-width="1px" vector-effect="non-scaling-stroke" />
+					<!--#4dendloop-->
+				</g>
+				<!--#4dendloop-->
+	<!--#4dendloop-->
+</svg>

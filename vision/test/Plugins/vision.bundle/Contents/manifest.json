@@ -1,0 +1,16 @@
+{
+	"name": "vision",
+	"id": 20000,
+	"commands": [
+		{
+			"theme": "vision",
+			"syntax": "vision process data(&O;&J):J",
+			"threadSafe": true
+		},
+        {
+            "theme": "vision",
+            "syntax": "vision get version:J",
+            "threadSafe": true
+        }
+	]
+}
