@@ -18,6 +18,7 @@ $status:=vision process data ($imageData;$params)
 #### possible targets:
 
 * face
+* part (face landmarks=facial features)
 * text (OCR)
 * string (characters)
 * rect
