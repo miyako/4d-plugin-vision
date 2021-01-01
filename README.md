@@ -6,6 +6,21 @@
 # 4d-plugin-vision
 Use [Vision](https://developer.apple.com/documentation/vision?language=objc) API (macOS).
 
+#### About OCR by Vision
+
+The plugin is configured to target 10.13 minimum, but API availability is progressive.
+
+##### 10.14 or above
+
+* faceLandmark
+
+##### 10.15 or above
+
+* faceLandmark > faceCaptureQuality
+* recognizeText (OCR, en-US only)
+* human
+* animal (dog or cat, not implemented in plugin)
+
 To use on v17, move manifest.json to contents.
 
 * [Text example](https://github.com/miyako/4d-plugin-vision/blob/main/vision/test/Project/Sources/Methods/TEST_text.4dm)
