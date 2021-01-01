@@ -7,3 +7,7 @@
 Use [Vision](https://developer.apple.com/documentation/vision?language=objc) API (macOS).
 
 To use on v17, move manifest.json to contents.
+
+* Text example
+
+![text](https://user-images.githubusercontent.com/1725068/103431450-50494200-4c13-11eb-8d90-1e6690268c4e.png)
