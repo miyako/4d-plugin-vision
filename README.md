@@ -19,7 +19,7 @@ The plugin is configured to target 10.13 minimum, but API availability is progre
 * faceLandmark > faceCaptureQuality
 * recognizeText (OCR, en-US only)
 * human
-* recognizeAnimal (dog or cat)
+* recognizeAnimal (dog or cat only)
 
 To use on v17, move manifest.json to contents.
 
