@@ -19,13 +19,13 @@ $status:=vision process data ($imageData;$params)
 
 * face
 * part (face landmarks=facial features)
-* text (OCR)
+* text (OCR, en-US only)
 * string (characters)
 * rect
 * horizon
 * barcode
 * human
-* animal
+* animal (dog or cat only)
 
 #### About OCR by Vision
 
@@ -33,14 +33,14 @@ The plugin is configured to target 10.13 minimum, but API availability is progre
 
 ##### 10.14 or above
 
-* faceLandmark
+* face landmark
 
 ##### 10.15 or above
 
-* faceLandmark > faceCaptureQuality
-* recognizeText (OCR, en-US only)
+* part > face capture quality
+* text 
 * human
-* recognizeAnimal (dog or cat only)
+* animal
 
 To use on v17, move manifest.json to contents.
 
