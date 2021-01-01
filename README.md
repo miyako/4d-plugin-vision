@@ -6,6 +6,26 @@
 # 4d-plugin-vision
 Use [Vision](https://developer.apple.com/documentation/vision?language=objc) API (macOS).
 
+### Syntax
+
+```4d
+$file:=Folder(fk resources folder).file("faces.jpg")
+DOCUMENT TO BLOB($file.platformPath;$imageData)
+$params.targets:=New collection("part";"text")
+$status:=vision process data ($imageData;$params)
+```
+
+#### possible targets:
+
+* face
+* text (OCR)
+* string (characters)
+* rect
+* horizon
+* barcode
+* human
+* animal
+
 #### About OCR by Vision
 
 The plugin is configured to target 10.13 minimum, but API availability is progressive.
