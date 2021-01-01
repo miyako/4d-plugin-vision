@@ -11,7 +11,7 @@
 
 	PICTURE PROPERTIES($image;$imageWidth;$imageHeight)
 
-	ARRAY TEXT($targets;8)
+	ARRAY TEXT($targets;9)
 
 	$targets{1}:="faces"
 	$targets{2}:="texts"
@@ -21,6 +21,7 @@
 	$targets{6}:="recognizedTexts"
 	$targets{7}:="humans"
 	$targets{8}:="faceLandmarks"
+	$targets{9}:="animals"
 
 	$default:=New object("fill";"none";"stroke";"blue";"fillOpacity";1)
 -->

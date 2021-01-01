@@ -352,6 +352,23 @@ static VNDetectHumanRectanglesRequest *getHumanRectanglesRequest(PA_ObjectRef pa
     return request;
 }
 
+API_AVAILABLE(macos(10.15))
+static VNRecognizeAnimalsRequest *getAnimalRequest(PA_ObjectRef param) {
+    //VNRecognizeAnimalsRequest < VNImageBasedRequest < VNRequest
+    VNRecognizeAnimalsRequest *request = nil;
+    
+    if(targetContains(param, @"animal")) {
+        request = [[VNRecognizeAnimalsRequest alloc]initWithCompletionHandler:^void(VNRequest *request, NSError *error){
+            
+        }];
+        
+        getParamsForRequest(param, request);
+        getParamsForImageRequest(param, request);
+    }
+    
+    return request;
+}
+
 static VNDetectTextRectanglesRequest *getTextRectanglesRequest(PA_ObjectRef param) {
     //VNDetectTextRectanglesRequest < VNImageBasedRequest < VNRequest
     VNDetectTextRectanglesRequest *request = nil;
@@ -704,6 +721,28 @@ static void getResultsForHumans(PA_ObjectRef returnValue, VNDetectHumanRectangle
     ob_set_c(returnValue, L"humans", humans);
 }
 
+API_AVAILABLE(macos(10.15))
+static void getResultsForAnimals(PA_ObjectRef returnValue, VNRecognizeAnimalsRequest *request) {
+    
+    PA_CollectionRef animals = PA_CreateCollection();
+    
+    if(request) {
+        
+        NSArray *results = [request results];
+        
+        for(VNRecognizedObjectObservation *observation in results) {
+            
+            PA_ObjectRef result = PA_CreateObject();
+
+            getResultsForObject(result, observation);
+            
+            collection_push(animals, result);
+        }
+    }
+    
+    ob_set_c(returnValue, L"animals", animals);
+}
+
 #pragma mark API
 
 void vision_get_version(PA_PluginParameters params) {
@@ -837,6 +876,11 @@ void vision_process_data(PA_PluginParameters params) {
             humanRequest = getHumanRectanglesRequest(param);
         }
 
+        id animalRequest = nil;
+        if (@available(macOS 10.15, *)) {
+            animalRequest = getAnimalRequest(param);
+        }
+        
         if(faceRequest) {
             [requests addObject:faceRequest];
         }
@@ -861,6 +905,9 @@ void vision_process_data(PA_PluginParameters params) {
         if(humanRequest) {
             [requests addObject:humanRequest];
         }
+        if(animalRequest) {
+            [requests addObject:animalRequest];
+        }
  
         NSError *error;
         BOOL success = [requestHandler performRequests:requests error:&error];
@@ -882,6 +929,10 @@ void vision_process_data(PA_PluginParameters params) {
             }
             
             if (@available(macOS 10.15, *)) {
+                if(animalRequest) getResultsForAnimals(returnValue,animalRequest);
+            }
+
+            if (@available(macOS 10.15, *)) {
                 if(recognizeTextRequest) getResultsForTexts(returnValue,recognizeTextRequest, maxCandidateCount);
             }
             
@@ -898,6 +949,7 @@ void vision_process_data(PA_PluginParameters params) {
         
         if(recognizeTextRequest) [recognizeTextRequest release];
         if(humanRequest) [humanRequest release];
+        if(animalRequest) [animalRequest release];
         
         [requests release];
         [requestHandler release];

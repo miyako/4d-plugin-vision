@@ -1,7 +1,32 @@
 ﻿{
 	"editors": [
 		{
-			"type": "toolbox"
+			"type": "method",
+			"id": 2147483638,
+			"previousTabType": "method",
+			"previousTabID": 2147483647,
+			"codeDescriptor": {
+				"type": 1,
+				"methodName": "TEST_animal"
+			}
+		},
+		{
+			"type": "method",
+			"id": 2147483647,
+			"previousTabType": "method",
+			"previousTabID": 2147483641,
+			"codeDescriptor": {
+				"type": 1,
+				"methodName": "TEST_faces"
+			}
+		},
+		{
+			"type": "method",
+			"id": 2147483641,
+			"codeDescriptor": {
+				"type": 1,
+				"methodName": "TEST_text"
+			}
 		}
 	]
 }

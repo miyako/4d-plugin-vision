@@ -5,8 +5,7 @@ DOCUMENT TO BLOB:C525($file.platformPath;$imageData)
 
 $params:=New object:C1471
 
-$params.targets:=New collection:C1472("face";"text";"string";"rect";"horizon";"barcode";"human")
-$params.targets:=New collection:C1472("string";"barcode")
+$params.targets:=New collection:C1472("string";"barcode")  //text=recognizeText
 
   //all targets
 $params.preferBackgroundProcessing:=True:C214

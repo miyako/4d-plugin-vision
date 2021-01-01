@@ -171,13 +171,13 @@
 		"stamp": "2019-07-02T23:15:40.975Z"
 	},
 	"Sources/Methods/TEST.4dm": {
-		"startSelection": 0,
-		"endSelection": 0,
+		"startSelection": 27,
+		"endSelection": 27,
 		"firstSelectedLine": 0,
 		"lastSelectedLine": 0,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-12-31T15:42:24.638Z"
+		"stamp": "2021-01-01T04:23:18.057Z"
 	},
 	"Sources/Methods/TEST_v17.4dm": {
 		"startSelection": 0,
@@ -225,12 +225,21 @@
 		"stamp": "2020-12-31T19:02:50.861Z"
 	},
 	"Sources/Methods/TEST_text.4dm": {
-		"startSelection": 33,
-		"endSelection": 16,
-		"firstSelectedLine": 35,
-		"lastSelectedLine": 35,
+		"startSelection": 0,
+		"endSelection": 0,
+		"firstSelectedLine": 5,
+		"lastSelectedLine": 5,
 		"folding": [],
 		"bookmarks": [],
-		"stamp": "2020-12-31T18:56:41.042Z"
+		"stamp": "2021-01-01T04:23:18.052Z"
+	},
+	"Sources/Methods/TEST_animal.4dm": {
+		"startSelection": 49,
+		"endSelection": 49,
+		"firstSelectedLine": 0,
+		"lastSelectedLine": 0,
+		"folding": [],
+		"bookmarks": [],
+		"stamp": "2021-01-01T04:28:34.484Z"
 	}
 }

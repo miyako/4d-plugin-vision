@@ -145,9 +145,9 @@
 	},
 	"Sources/Methods/TEST.4dm": {
 		"left": 492,
-		"top": 192,
+		"top": 218,
 		"width": 877,
-		"height": 585
+		"height": 559
 	},
 	"Sources/Methods/TEST_v17.4dm": {
 		"left": 450,
@@ -169,9 +169,9 @@
 	},
 	"Sources/Methods/TEST_faces.4dm": {
 		"left": 492,
-		"top": 192,
+		"top": 218,
 		"width": 877,
-		"height": 585
+		"height": 559
 	},
 	"Sources/Methods/add_highlights.4dm": {
 		"left": 492,
@@ -181,8 +181,14 @@
 	},
 	"Sources/Methods/TEST_text.4dm": {
 		"left": 492,
-		"top": 192,
+		"top": 218,
 		"width": 877,
-		"height": 585
+		"height": 559
+	},
+	"Sources/Methods/TEST_animal.4dm": {
+		"left": 492,
+		"top": 218,
+		"width": 877,
+		"height": 559
 	}
 }
