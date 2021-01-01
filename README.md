@@ -12,3 +12,7 @@ To use on v17, move manifest.json to contents.
 
 <img src="https://user-images.githubusercontent.com/1725068/103431450-50494200-4c13-11eb-8d90-1e6690268c4e.png" width="400" />
 
+* Faces example
+
+<img src="https://user-images.githubusercontent.com/1725068/103431530-a36fc480-4c14-11eb-9f6f-45864cb60a7e.jpg" width="400" />
+
