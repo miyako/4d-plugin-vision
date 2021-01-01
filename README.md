@@ -29,5 +29,6 @@ To use on v17, move manifest.json to contents.
 
 * [Faces example](https://github.com/miyako/4d-plugin-vision/blob/main/vision/test/Project/Sources/Methods/TEST_faces.4dm)
 
-<img src="https://user-images.githubusercontent.com/1725068/103431530-a36fc480-4c14-11eb-9f6f-45864cb60a7e.jpg" width="400" />
+<img src="https://user-images.githubusercontent.com/1725068/103433511-74b61600-4c35-11eb-9cd9-a1ddbc599c01.png" width="400" />
 
+* [Animal example](https://github.com/miyako/4d-plugin-vision/blob/main/vision/test/Project/Sources/Methods/TEST_animal.4dm)
