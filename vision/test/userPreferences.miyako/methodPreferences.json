@@ -207,10 +207,10 @@
 		"stamp": "2020-12-31T16:10:33.142Z"
 	},
 	"Sources/Methods/TEST_faces.4dm": {
-		"startSelection": 13,
-		"endSelection": 13,
-		"firstSelectedLine": 24,
-		"lastSelectedLine": 24,
+		"startSelection": 47,
+		"endSelection": 0,
+		"firstSelectedLine": 2,
+		"lastSelectedLine": 0,
 		"folding": [],
 		"bookmarks": [],
 		"stamp": "2020-12-31T18:57:41.942Z"
