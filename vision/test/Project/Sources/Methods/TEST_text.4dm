@@ -1,13 +1,13 @@
 //%attributes = {}
 $file:=Folder:C1567(fk resources folder:K87:11).file("sample.png")
 
-DOCUMENT TO BLOB:C525($file.platformPath;$imageData)
+DOCUMENT TO BLOB:C525($file.platformPath; $imageData)
 
 $params:=New object:C1471
 
-$params.targets:=New collection:C1472("string";"barcode")  //text=recognizeText
+$params.targets:=New collection:C1472("string"; "barcode"; "text")  //text=recognizeText
 
-  //all targets
+//all targets
 $params.preferBackgroundProcessing:=True:C214
 $params.usesCPUOnly:=True:C214
 $params.orientation:="up"
@@ -17,10 +17,10 @@ $params.regionOfInterest.y:=0
 $params.regionOfInterest.width:=1
 $params.regionOfInterest.height:=1
 
-  //string
+//string
 $params.reportCharacterBoxes:=True:C214
 
-  //text
+//text
 $params.maxCandidateCount:=1
 $params.minimumTextHeight:=0
 $params.minimumTextHeight:=0
@@ -29,25 +29,25 @@ $params.recognitionLevel:=0
 $params.recognitionLanguages:=New collection:C1472("en-US")  //only US English is supported as of Catalina
 $params.customWords:=New collection:C1472("4D")
 
-$status:=vision process data ($imageData;$params)
+$status:=vision process data($imageData; $params)
 
 If ($status.success)
 	
-	BLOB TO PICTURE:C682($imageData;$image)
+	BLOB TO PICTURE:C682($imageData; $image)
 	
 	C_OBJECT:C1216($barcode)
-	For each ($barcode;$status.barcodes)
+	For each ($barcode; $status.barcodes)
 		$barcode.stroke:="yellow"
 		$barcode.fill:="green"
 		$barcode.fillOpacity:=0.3
 	End for each 
 	
-	C_OBJECT:C1216($text;$characters)
-	For each ($text;$status.texts)
+	C_OBJECT:C1216($text; $characters)
+	For each ($text; $status.texts)
 		$text.stroke:="yellow"
 		$text.fill:="blue"
 		$text.fillOpacity:=0.3
-		For each ($characters;$text.characters)
+		For each ($characters; $text.characters)
 			$characters.stroke:="red"
 			$characters.fill:="red"
 			$characters.fillOpacity:=0.3
@@ -55,7 +55,7 @@ If ($status.success)
 	End for each 
 	
 	
-	$image:=add_highlights ($image;$status)
+	$image:=add_highlights($image; $status)
 	
 	SET PICTURE TO PASTEBOARD:C521($image)
 	
