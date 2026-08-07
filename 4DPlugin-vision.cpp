@@ -203,7 +203,7 @@ static void getParamsForTextRequest(PA_ObjectRef detect, VNRecognizeTextRequest 
     PA_CollectionRef recognitionLanguages = ob_get_c(detect, L"recognitionLanguages");
     if(recognitionLanguages) {
         NSArray *arr = createStringArrayForParam(recognitionLanguages);
-        request.customWords = arr;
+        request.recognitionLanguages = arr;
         [arr release];
     }
     PA_CollectionRef customWords = ob_get_c(detect, L"customWords");
@@ -445,10 +445,14 @@ static void getResultsForText(PA_ObjectRef result,
         
         getResultsForObject(result, observation);
         
+        // topCandidates: is ordered highest-confidence first; take candidate 0 as
+        // the best guess instead of looping and overwriting with the last (worst)
+        // candidate in the requested set.
         NSArray<VNRecognizedText*> *topCandidates = [observation topCandidates:maxCandidateCount];
-        for(VNRecognizedText *candidate in topCandidates) {
-            ob_set_s(result, L"string", (const char *)[candidate.string UTF8String]);
-            ob_set_n(result, L"confidence", candidate.confidence);
+        VNRecognizedText *bestCandidate = topCandidates.firstObject;
+        if(bestCandidate) {
+            ob_set_s(result, L"string", (const char *)[bestCandidate.string UTF8String]);
+            ob_set_n(result, L"confidence", bestCandidate.confidence);
         }
     }
 }
@@ -482,7 +486,7 @@ static void getResultsForBarcode(PA_ObjectRef result, VNBarcodeObservation *obse
         VNBarcodeSymbology symbology = observation.symbology;
         NSString *payloadStringValue = observation.payloadStringValue;
         ob_set_s(result, L"symbology", (const char *)[symbology UTF8String]);
-        ob_set_s(result, L"payloadStringValue", (const char *)[payloadStringValue UTF8String]);
+        ob_set_s(result, L"payloadStringValue", payloadStringValue ? (const char *)[payloadStringValue UTF8String] : "");
     }
     
 }
@@ -539,10 +543,10 @@ static void getResultsForFace(PA_ObjectRef result, VNFaceObservation *observatio
                 ob_set_c(result, L"parts", col);
             }
             
-            ob_set_n(result, L"roll", [observation.roll doubleValue]);
-            ob_set_n(result, L"yaw", [observation.yaw doubleValue]);
+            ob_set_n(result, L"roll", observation.roll ? [observation.roll doubleValue] : 0.0);
+            ob_set_n(result, L"yaw", observation.yaw ? [observation.yaw doubleValue] : 0.0);
             if (@available(macOS 10.15, *)) {
-                ob_set_n(result, L"faceCaptureQuality", [observation.faceCaptureQuality doubleValue]);
+                ob_set_n(result, L"faceCaptureQuality", observation.faceCaptureQuality ? [observation.faceCaptureQuality doubleValue] : 0.0);
             }
         }
     }
@@ -552,7 +556,7 @@ static void getResultsForFace(PA_ObjectRef result, VNFaceObservation *observatio
 
 static void getResultsForRects(PA_ObjectRef returnValue, VNDetectRectanglesRequest *request) {
     
-    PA_CollectionRef barcodes = PA_CreateCollection();
+    PA_CollectionRef rects = PA_CreateCollection();
     
     if(request) {
         
@@ -564,11 +568,11 @@ static void getResultsForRects(PA_ObjectRef returnValue, VNDetectRectanglesReque
 
             getResultsForObject(result, observation);
             
-            collection_push(barcodes, result);
+            collection_push(rects, result);
         }
     }
     
-    ob_set_c(returnValue, L"barcodes", barcodes);
+    ob_set_c(returnValue, L"rects", rects);
 }
 
 static void getResultsForBarcodes(PA_ObjectRef returnValue, VNDetectBarcodesRequest *request) {
@@ -594,7 +598,7 @@ static void getResultsForBarcodes(PA_ObjectRef returnValue, VNDetectBarcodesRequ
 
 static void getResultsForHorizon(PA_ObjectRef returnValue, VNDetectHorizonRequest *request) {
     
-    PA_CollectionRef barcodes = PA_CreateCollection();
+    PA_CollectionRef horizons = PA_CreateCollection();
     
     if(request) {
         
@@ -606,11 +610,11 @@ static void getResultsForHorizon(PA_ObjectRef returnValue, VNDetectHorizonReques
 
             getResultsForHorizon(result, observation);
             
-            collection_push(barcodes, result);
+            collection_push(horizons, result);
         }
     }
     
-    ob_set_c(returnValue, L"barcodes", barcodes);
+    ob_set_c(returnValue, L"horizons", horizons);
 }
 
 
@@ -746,16 +750,22 @@ static void getResultsForAnimals(PA_ObjectRef returnValue, VNRecognizeAnimalsReq
 #pragma mark API
 
 void vision_get_version(PA_PluginParameters params) {
+  @autoreleasepool {
     //animal,barcode,text
     PA_ObjectRef returnValue = PA_CreateObject();
     ob_set_b(returnValue, L"success", false);
+    // Each section reports its own success; overall success is true as long as
+    // at least one section that was actually attempted on this OS succeeded.
+    // (Previously `success` was only ever set inside the macOS 10.15+ animal
+    // block, so a pre-10.15 run always reported success:false even though the
+    // unconditional barcode section below had already succeeded.)
     BOOL success = false;
-    NSError *error = nil;
     NSUInteger revision = 1;
     NSArray *supportedLanguages = nil;
     
     if (@available(macOS 10.15, *)) {
         
+        NSError *error = nil;
         PA_ObjectRef animal = PA_CreateObject();
         revision = [VNRecognizeAnimalsRequest currentRevision];
         NSArray *knownAnimalIdentifiersForRevision = [VNRecognizeAnimalsRequest
@@ -770,6 +780,10 @@ void vision_get_version(PA_PluginParameters params) {
             ob_set_c(animal, L"knownAnimalIdentifiers", knownAnimalIdentifiers);
             ob_set_o(returnValue, L"animal", animal);
         }
+        // NOTE: if `error` is set here, `animal` (created above) is never attached
+        // to returnValue. Whether that needs an explicit PA_* dispose call depends
+        // on PA_ObjectRef's ownership contract in 4DPluginAPI.h, which isn't
+        // available in this review — left as-is pending that header.
 
     }
     
@@ -781,6 +795,7 @@ void vision_get_version(PA_PluginParameters params) {
     }
     ob_set_c(barcode, L"symbologies", symbologies);
     ob_set_o(returnValue, L"barcode", barcode);
+    success = true;
     
     if (@available(macOS 10.15, *)) {
                 
@@ -788,12 +803,13 @@ void vision_get_version(PA_PluginParameters params) {
         PA_ObjectRef languages = PA_CreateObject();
         revision = [VNRecognizeTextRequest currentRevision];
 
+        NSError *accurateError = nil;
         supportedLanguages = [VNRecognizeTextRequest
                               supportedRecognitionLanguagesForTextRecognitionLevel:VNRequestTextRecognitionLevelAccurate
                               revision:revision
-                              error:&error];
+                              error:&accurateError];
         
-        if(!error) {
+        if(!accurateError) {
             PA_CollectionRef _languages = PA_CreateCollection();
             for(NSString *language in supportedLanguages) {
                 collection_push(_languages, language);
@@ -801,12 +817,13 @@ void vision_get_version(PA_PluginParameters params) {
             ob_set_c(languages, L"accurate", _languages);
         }
 
+        NSError *fastError = nil;
         supportedLanguages = [VNRecognizeTextRequest
                               supportedRecognitionLanguagesForTextRecognitionLevel:VNRequestTextRecognitionLevelFast
                               revision:revision
-                              error:&error];
+                              error:&fastError];
         
-        if(!error) {
+        if(!fastError) {
             PA_CollectionRef _languages = PA_CreateCollection();
             for(NSString *language in supportedLanguages) {
                 collection_push(_languages, language);
@@ -820,6 +837,7 @@ void vision_get_version(PA_PluginParameters params) {
     
     ob_set_b(returnValue, L"success", success);
     PA_ReturnObject(params, returnValue);
+  }
 }
 
 static NSData *createDataParameter(PA_PluginParameters params, short index) {
@@ -827,12 +845,15 @@ static NSData *createDataParameter(PA_PluginParameters params, short index) {
     NSData *data = nil;
     
     void *bytes = NULL;
-    PA_long32 len = PA_GetBlobParameter(params, 1, bytes);
+    PA_long32 len = PA_GetBlobParameter(params, index, bytes);
     
-    if(len) {
+    // Explicit positivity check (not just "len != 0"): a negative len cast to
+    // the vector's size_type would request a huge allocation and throw
+    // (std::length_error / bad_alloc) instead of failing gracefully.
+    if(len > 0) {
         std::vector<uint8_t>buf(len);
         bytes = &buf[0];
-        PA_GetBlobParameter(params, 1, bytes);
+        PA_GetBlobParameter(params, index, bytes);
         data = [[NSData alloc]initWithBytes:(const void *)bytes length:(NSUInteger)len];
     }
     
@@ -840,6 +861,7 @@ static NSData *createDataParameter(PA_PluginParameters params, short index) {
 }
 
 void vision_process_data(PA_PluginParameters params) {
+  @autoreleasepool {
 
     PA_ObjectRef returnValue = PA_CreateObject();
     ob_set_b(returnValue, L"success", false);
@@ -958,4 +980,5 @@ void vision_process_data(PA_PluginParameters params) {
     }
     
     PA_ReturnObject(params, returnValue);
+  }
 }
