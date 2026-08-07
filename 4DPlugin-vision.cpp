@@ -36,6 +36,35 @@ void PluginMain(PA_long32 selector, PA_PluginParameters params) {
 	}
 }
 
+#pragma mark local helpers
+
+// support/4DPlugin-JSON.h (this project's vendored JSON helper, verified at
+// its own v1.0.4 tag) declares ob_get_a/ob_get_b/ob_get_n/ob_get_c but no
+// object-valued property getter at all. Implemented locally rather than
+// editing that shared header (other plugins vendor the same file), mirroring
+// ob_get_c's own implementation exactly but for eVK_Object/PA_GetObjectVariable.
+static PA_ObjectRef ob_get_o(PA_ObjectRef obj, const wchar_t *_key) {
+
+    PA_ObjectRef value = NULL;
+
+    if(obj) {
+        CUTF16String ukey;
+        json_wconv(_key, &ukey);
+        PA_Unistring key = PA_CreateUnistring((PA_Unichar *)ukey.c_str());
+
+        if(PA_HasObjectProperty(obj, &key)) {
+            PA_Variable v = PA_GetObjectProperty(obj, &key);
+            if(PA_GetVariableKind(v) == eVK_Object) {
+                value = PA_GetObjectVariable(v);
+            }
+        }
+
+        PA_DisposeUnistring(&key);
+    }
+
+    return value;
+}
+
 #pragma mark utilities
 
 static void collection_push(PA_CollectionRef c, CFStringRef str) {
@@ -45,7 +74,14 @@ static void collection_push(PA_CollectionRef c, CFStringRef str) {
         std::vector<uint8_t> buf((len+1) * sizeof(PA_Unichar));
         CFStringGetCharacters(str, CFRangeMake(0, len), (UniChar *)&buf[0]);
         PA_Unistring _value = PA_CreateUnistring((PA_Unichar *)&buf[0]);
-        PA_Variable v = PA_CreateVariable(eVK_Unistring);
+        // Not pre-created via PA_CreateVariable(eVK_Unistring): that call
+        // allocates its own internal empty PA_Unistring (via 4D's engine)
+        // which PA_SetStringVariable below would then silently overwrite
+        // without disposing -- a real per-call leak, confirmed by reading
+        // PA_CreateVariable/PA_SetStringVariable in 4DPluginAPI.c. Skipping
+        // it avoids the leak: PA_SetStringVariable fully sets fType and
+        // uValue.fString itself, so no prior initialization is needed.
+        PA_Variable v;
         PA_SetStringVariable(&v, &_value);
         PA_SetCollectionElement(c, PA_GetCollectionLength(c), v);
 //        the unistring belongs to the collection
@@ -107,7 +143,7 @@ static CGImagePropertyOrientation getOrientation(PA_ObjectRef param) {
     if(param) {
         if(ob_is_defined(param, L"orientation")) {
             CUTF8String _orientation;
-            if(ob_get_s(param, L"orientation", &_orientation)) {
+            if(ob_get_a(param, L"orientation", &_orientation)) {
                 if(_orientation == (const uint8_t *)"mirrored") {
                     orientation = kCGImagePropertyOrientationUpMirrored;
                     goto exit;
@@ -517,8 +553,6 @@ static void getResultsForFace(PA_ObjectRef result, VNFaceObservation *observatio
                 
                 PA_CollectionRef col = PA_CreateCollection();
                 
-                CGFloat height = observation.boundingBox.size.height;
-                
                 for(NSString *part in parts) {
                     
                     PA_ObjectRef o = PA_CreateObject();
@@ -779,11 +813,14 @@ void vision_get_version(PA_PluginParameters params) {
             }
             ob_set_c(animal, L"knownAnimalIdentifiers", knownAnimalIdentifiers);
             ob_set_o(returnValue, L"animal", animal);
+        } else {
+            // PA_CreateObject() allocates a real 4D object on every call
+            // (confirmed in 4DPluginAPI.c: it invokes 4D's own "New Object"
+            // command). If the Vision call above failed, `animal` above was
+            // never attached to returnValue, so it must be disposed here
+            // explicitly rather than left orphaned.
+            PA_DisposeObject(animal);
         }
-        // NOTE: if `error` is set here, `animal` (created above) is never attached
-        // to returnValue. Whether that needs an explicit PA_* dispose call depends
-        // on PA_ObjectRef's ownership contract in 4DPluginAPI.h, which isn't
-        // available in this review — left as-is pending that header.
 
     }
     
