@@ -54,8 +54,8 @@ def prove(commit):
             raise ValueError("Bump must be a nonempty exact-source direct child, equal to remote")
         if TRAILER not in run("git", "show", "-s", "--format=%B", child, cwd=checkout).splitlines():
             raise ValueError("Generated Bump coauthor trailer is missing")
-        for repository in (checkout, bare):
-            if run("git", "tag", "--list", cwd=repository):
+        for git_dir in (checkout / ".git", bare):
+            if run("git", "--git-dir=" + str(git_dir), "tag", "--list"):
                 raise ValueError("Disposable local or remote tags were created")
         if run("git", "status", "--porcelain", cwd=checkout):
             raise ValueError("Generated Bump left a dirty checkout")
@@ -68,8 +68,8 @@ def prove(commit):
         if run("git", "rev-parse", "HEAD", cwd=checkout) != child \
                 or run("git", "--git-dir=" + str(bare), "rev-parse", "refs/heads/" + branch) != child:
             raise ValueError("Bumped full validation changed local or bare HEAD")
-        for repository in (checkout, bare):
-            if run("git", "tag", "--list", cwd=repository):
+        for git_dir in (checkout / ".git", bare):
+            if run("git", "--git-dir=" + str(git_dir), "tag", "--list"):
                 raise ValueError("Bumped full validation created tags")
         proof = {"migration": commit, "local": child, "bare": advertised, "parents": parents,
                  "source_paths": sorted(changed), "clean": True, "local_tags": 0, "remote_tags": 0,
