@@ -14,6 +14,110 @@ The `vision` plugin exposes Apple's **Vision** framework (`Vision.framework`, ma
 
 **Platforms:** macOS only. The plugin is built directly against `Cocoa` and `Vision.framework`; there is no Windows implementation.
 
+## Manual versioning and publication
+
+The Actions page has exactly two independent manual entries. **Bump** takes one
+required `mode` choice (`patch`, the default; `minor`; `major`). Select a branch
+with GitHub's built-in ref selector. It checks out the selected immutable SHA,
+validates clean source metadata and the remote branch, makes one source-only
+direct-child commit, and pushes only that branch. It never tags, builds, publishes,
+or dispatches another workflow. Tags are not valid Bump targets.
+
+**Build** has no custom inputs. Select the branch or tag with GitHub's built-in
+ref selector; the selected SHA, not a moving branch name, is used throughout.
+Build derives canonical `X.Y.Z` from the source, builds macOS, signs and strictly
+verifies the bundle, notarizes both ZIP and DMG (successful command **and**
+JSON `Accepted` required), staples the DMG, then creates `vX.Y.Z` at that SHA
+and a new public, non-prerelease release with the exact ZIP/DMG assets.
+There is no new default-branch-only restriction. Each operation has a constant,
+repository-wide, cross-ref concurrency group with cancellation disabled;
+the Bump and Build groups are independent. Bumping does not publish; building
+does not bump. Nothing is triggered by branch, PR, or tag pushes.
+
+### Source authority and preservation
+
+The coordinated version authority is `vision.xcodeproj/project.pbxproj` (six
+`MARKETING_VERSION` and six `CURRENT_PROJECT_VERSION` assignments), root
+`Info.plist`, and the copied **source** `English.lproj/InfoPlist.strings`.
+The source short version is required; the plist build version is optional and
+stays absent when absent. Existing known `$()` and `${}` references are resolved,
+validated and preserved; unresolved/cyclic references, duplicates, invalid
+versions and drift fail before writes. Token edits preserve encoding/BOM,
+UTF-16 endianness, individual line endings, modes and unrelated bytes.
+
+This coordinated policy comes from the explicit header and history at
+`2791822db05ec42c98430985a628e50f05deae2f`, not the old marketing-only bump
+body. Intake `14cff9ed01dee21a448de8fea71e5b5790a5f320` already declared
+marketing/root display `1.0.8`; this migration only repairs six stale source
+current values (`1.0.6`) and the two copied source localization version tokens
+(`1.0.2`) to that existing authority. It does **not** bump intake or add a plist
+build key. Destination/prebuilt metadata, including UTF-16 strings, is not source.
+
+The actual original workflow was macOS-only (`version`, `build-macos`) despite
+its Windows comments. That topology, `Default` configuration, deployment
+override `10.13`, arm64/x86_64 requirements (additional slices allowed), Cocoa/
+Vision frameworks, dependencies, source/resource copy phases and secret names
+are preserved. Xcode's output is explicitly fixed to `test/Plugins`, matching
+the original verification/package path and the project's `SYMROOT`.
+Only the generated macOS executable, built plist, copied English strings,
+signature and target/build-database intermediates are invalidated before build.
+Other resources, Windows prebuilts, dependencies and `Default` sibling resources
+are retained. Fresh XML/binary plist and actual copied localization (including
+UTF-16) must match source. Tracked native output changes are expected and remain
+intact through final publication; staged/unstaged source/config changes or a
+changed HEAD are forbidden, not hidden by resets.
+
+The original committed triggers were Bump's manual choice and Build & Release's
+`push.tags: ['v*.*.*']` plus manual required `tag` input; neither workflow had a
+native branch or PR trigger. Original softprops configuration specified only
+tag, name and files: release body remains empty and generated notes remain off.
+
+### Failure and manual recovery
+
+Before any native work, authenticated checks reject an existing exact tag or
+matching release (including drafts across every page). After all native gates,
+the helper verifies HEAD/source/config and repeats availability checks.
+Authentication, network, malformed responses and races fail closed. Publication
+uses separate create-only tag and release POSTs, verifies the tag SHA, and uploads
+only to the newly returned release ID. It never reuses, edits, deletes, retries,
+clobbers or rolls back existing remote state.
+
+On failure, inspect the run and remote tag/release/assets before acting. A tag,
+release, or first uploaded asset may already exist; partial state is deliberately
+retained for human recovery. Do not blindly rerun the same version. A maintainer
+must decide how to recover retained state or prepare a new source version; the
+automation will not repair an existing publication.
+
+Bump requires its executable advertised-SHA pre-push guard both initially and
+immediately before push. It checks one exact advertised update, selected old SHA,
+literal new SHA, HEAD and sole parent; even an already-updated/same-result race
+fails. Push uses both `push.followTags=false` and `--no-follow-tags`, never force.
+Generated Bump commits include the Copilot App coauthor trailer.
+
+Offline checks: `python3 -m unittest discover -s .github/tests -v` and
+`actionlint .github/workflows/*.yml`. Native workflow Bash is executed only with
+a closed-PATH stub harness; these checks do not invoke real native builds,
+signing, notarization, 4D or Actions dispatch.
+For final-commit regression proof, run
+`python3 .github/tests/prove_bump.py --commit <exact-final-migration-SHA>` from
+a clean checkout. It clones that commit into a disposable local/bare pair,
+executes the real guarded patch Bump, verifies clean local=remote, sole parent,
+exact nonempty source paths, coauthor and zero tags, then reruns the full suite
+and actionlint on the bumped checkout and removes the fixture.
+
+Adaptation references (all workflows/helpers/hooks/tests read at these immutable
+`miyako` repository pins; authority, counts, platforms and paths remain specific
+to vision):
+
+| Repository | Pin |
+|---|---|
+| 4d-plugin-native-encoding-detection | `c42ca565857f674bde5ea6ed3435c87375eda4a7` |
+| 4d-plugin-file-information | `19848973601acfd3a2b5070230fa40cdc7e4edb2` |
+| 4d-plugin-common-string-algorithm | `2606a68201866ec9fcbb38b51462d79215f504ef` |
+| 4d-plugin-window-button | `3f14facb9aaaaff0e22eeb8e07531163680c3a8a` |
+| 4d-plugin-raw-picture-data | `8144537fdc8dcc3d0c053dfe97aff0a8c0c3a6f9` |
+| 4d-plugin-PRNG | `522f62e1e9f388be0f3f226c1d4c39362dad2491` |
+
 ---
 
 ## Requirements & platform notes

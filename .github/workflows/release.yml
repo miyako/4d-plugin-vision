@@ -1,60 +1,51 @@
-# Builds the plugin for Windows (x64) first, then macOS as a universal
-# (arm64 + x86_64) binary, merges both into the single cross-platform
-# .bundle, codesigns + notarizes the mac binary, and publishes a GitHub
-# Release with the zip and dmg attached.
-#
-# Trigger: push a tag matching v*.*.* (either by hand, or via bump-version.yml).
-# You can also run it manually against an existing tag with workflow_dispatch.
-
-name: Build & Release
+name: Build
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing tag to build (e.g. v2.3.0)
-        required: true
 
 permissions:
   contents: write
 
 env:
-  # ---- edit these per-project, everything else is generic ----
   PRODUCT_NAME: vision
   XCODE_PROJECT: vision.xcodeproj
-  VCX_SOLUTION: vision.sln
   MACOS_DEPLOYMENT_TARGET: '10.13'
-  # --------------------------------------------------------------
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: vision-build-publication
   cancel-in-progress: false
 
 jobs:
-
   version:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set.outputs.tag }}
       version: ${{ steps.set.outputs.version }}
     steps:
-      - id: set
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+      - name: derive source version
+        id: set
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          VERSION=$(python3 .github/scripts/source_version.py)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
   build-macos:
     name: Build macOS, package, sign, notarize & release
     needs: [version]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ github.sha }}
+
+      - name: authenticated publication preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/release.py check --sha "$GITHUB_SHA"
 
       - name: import Developer ID certificate
         env:
@@ -65,16 +56,13 @@ jobs:
           set -euo pipefail
           KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
           CERT_PATH="$RUNNER_TEMP/certificate.p12"
-
           echo -n "$CERT_BASE64" | base64 --decode -o "$CERT_PATH"
-
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security import "$CERT_PATH" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: store notarytool credentials
@@ -83,6 +71,7 @@ jobs:
           TEAM_ID: ${{ secrets.NOTARYTOOL_TEAM_ID }}
           APP_PASSWORD: ${{ secrets.NOTARYTOOL_PASSWORD }}
         run: |
+          set -euo pipefail
           xcrun notarytool store-credentials "notarytool-profile" \
             --apple-id "$APPLE_ID" \
             --team-id "$TEAM_ID" \
@@ -91,21 +80,28 @@ jobs:
 
       - name: build macOS plugin (universal)
         run: |
-          xcodebuild -project "${{ env.XCODE_PROJECT }}" \
-            -target "${{ env.PRODUCT_NAME }}" \
+          set -euo pipefail
+          python3 .github/scripts/native.py
+          xcodebuild -project "$XCODE_PROJECT" \
+            -target "$PRODUCT_NAME" \
             -configuration Default \
+            CONFIGURATION_BUILD_DIR="$PWD/test/Plugins" \
             ARCHS="arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO \
-            MACOSX_DEPLOYMENT_TARGET="${{ env.MACOS_DEPLOYMENT_TARGET }}" \
+            MACOSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
             build
 
-      - name: verify universal binary
+      - name: verify universal binary and fresh metadata
         run: |
           set -euo pipefail
-          BUNDLE_PATH="test/Plugins/${{ env.PRODUCT_NAME }}.bundle"
-          BIN="$BUNDLE_PATH/Contents/MacOS/${{ env.PRODUCT_NAME }}"
+          BUNDLE_PATH="test/Plugins/${PRODUCT_NAME}.bundle"
+          BIN="$BUNDLE_PATH/Contents/MacOS/$PRODUCT_NAME"
+          test -s "$BIN"
           lipo -info "$BIN"
-          lipo -info "$BIN" | grep -q "arm64" && lipo -info "$BIN" | grep -q "x86_64"
+          lipo -verify_arch arm64 x86_64 "$BIN"
+          python3 .github/scripts/source_version.py --verify-bundle "$BUNDLE_PATH"
+          cmp manifest.json "$BUNDLE_PATH/Contents/Resources/manifest.json"
+          cmp constants.xlf "$BUNDLE_PATH/Contents/Resources/constants.xlf"
           echo "BUNDLE_PATH=$BUNDLE_PATH" >> "$GITHUB_ENV"
 
       - name: codesign
@@ -113,36 +109,31 @@ jobs:
           set -euo pipefail
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)".*/\1/')
-          echo "Signing with: $IDENTITY"
+          test -n "$IDENTITY"
           codesign --verbose --deep --timestamp --force --options=runtime \
             --sign "$IDENTITY" "$BUNDLE_PATH"
           codesign --verify --deep --strict --verbose=2 "$BUNDLE_PATH"
 
       - name: package, notarize & staple
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ needs.version.outputs.version }}"
-          ZIP_PATH="${{ env.PRODUCT_NAME }}-${VERSION}.zip"
-          DMG_PATH="${{ env.PRODUCT_NAME }}-${VERSION}.dmg"
-
-          # zip: cross-platform bundle (win + mac binaries together), what most users grab
+          ZIP_PATH="${PRODUCT_NAME}-${VERSION}.zip"
+          DMG_PATH="${PRODUCT_NAME}-${VERSION}.dmg"
           ditto -c -k --keepParent "$BUNDLE_PATH" "$ZIP_PATH"
-
-          # dmg: mac-friendly, and the only format Apple lets us staple a ticket to
-          hdiutil create -format UDBZ -volname "${{ env.PRODUCT_NAME }}" -srcfolder "$BUNDLE_PATH" "$DMG_PATH"
-
-          xcrun notarytool submit "$ZIP_PATH" --keychain-profile "notarytool-profile" --keychain "$KEYCHAIN_PATH" --wait
-          xcrun notarytool submit "$DMG_PATH" --keychain-profile "notarytool-profile" --keychain "$KEYCHAIN_PATH" --wait
+          hdiutil create -format UDBZ -volname "$PRODUCT_NAME" -srcfolder "$BUNDLE_PATH" "$DMG_PATH"
+          xcrun notarytool submit "$ZIP_PATH" --keychain-profile "notarytool-profile" \
+            --keychain "$KEYCHAIN_PATH" --wait --output-format json > "$RUNNER_TEMP/zip-notary.json"
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and d.get("status") == "Accepted" else "ZIP notarization not Accepted")' "$RUNNER_TEMP/zip-notary.json"
+          xcrun notarytool submit "$DMG_PATH" --keychain-profile "notarytool-profile" \
+            --keychain "$KEYCHAIN_PATH" --wait --output-format json > "$RUNNER_TEMP/dmg-notary.json"
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and d.get("status") == "Accepted" else "DMG notarization not Accepted")' "$RUNNER_TEMP/dmg-notary.json"
           xcrun stapler staple "$DMG_PATH"
-
           echo "ZIP_PATH=$ZIP_PATH" >> "$GITHUB_ENV"
           echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
 
-      - name: create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          name: ${{ needs.version.outputs.tag }}
-          files: |
-            ${{ env.ZIP_PATH }}
-            ${{ env.DMG_PATH }}
+      - name: create new tag, release and exact assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/release.py publish --sha "$GITHUB_SHA" "$ZIP_PATH" "$DMG_PATH"
