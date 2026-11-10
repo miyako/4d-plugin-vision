@@ -19,7 +19,8 @@ def git(*args):
 
 class RepositoryContractTests(unittest.TestCase):
     def test_exact_two_independent_manual_entries(self):
-        workflows = sorted((ROOT / ".github/workflows").glob("*"))
+        workflows = sorted(p for p in (ROOT / ".github/workflows").glob("*")
+                           if "\n  workflow_dispatch:" in p.read_text())
         self.assertEqual([p.name for p in workflows], ["bump-version.yml", "release.yml"])
         bump, build = [p.read_text() for p in workflows]
         self.assertTrue(bump.startswith("name: Bump\n"))
@@ -41,6 +42,19 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("inputs:", build)
         self.assertNotIn("release.py", bump)
         self.assertNotIn("bump.py", build)
+
+    def test_ownership_ci_is_read_only_and_nonrelease(self):
+        workflows = sorted(p.name for p in (ROOT / ".github/workflows").glob("*"))
+        self.assertEqual(workflows, ["bump-version.yml", "ownership.yml", "release.yml"])
+        text = (ROOT / ".github/workflows/ownership.yml").read_text()
+        self.assertIn("  pull_request:", text)
+        self.assertIn("  push:", text)
+        self.assertIn("  contents: read", text)
+        self.assertIn("--expect-baseline-failure", text)
+        self.assertIn("run: python3 .github/tests/run_ownership.py\n", text)
+        for forbidden in ("workflow_dispatch", "secrets.", "contents: write",
+                          "release.py", "bump.py", "codesign", "notarytool", "hdiutil"):
+            self.assertNotIn(forbidden, text)
 
     def test_actual_macos_only_jobs_and_native_configuration(self):
         build = (ROOT / ".github/workflows/release.yml").read_text()
@@ -104,7 +118,10 @@ class RepositoryContractTests(unittest.TestCase):
         paths = git("ls-tree", "-r", "--name-only", INTAKE).decode().splitlines()
         preserved = [p for p in paths if not p.startswith(".github/") and p not in
                      ("README.md", "Info.plist", "vision.xcodeproj/project.pbxproj",
-                      "English.lproj/InfoPlist.strings")]
+                      "English.lproj/InfoPlist.strings",
+                      # Intentional first-party ownership fixes, not SDK/resource changes.
+                      "4DPlugin-vision.cpp", "support/4DPlugin-JSON.cpp",
+                      "support/4DPlugin-JSON.h")]
         self.assertGreater(len(preserved), 100)
         subprocess.run(["git", "diff", "--exit-code", INTAKE, "--", *preserved],
                        cwd=ROOT, check=True, stdout=subprocess.PIPE)

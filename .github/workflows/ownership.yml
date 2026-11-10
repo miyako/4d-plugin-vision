@@ -1,0 +1,37 @@
+name: Ownership regressions
+
+on:
+  pull_request:
+    paths:
+      - '4DPlugin-vision.*'
+      - '4D Plugin API/**'
+      - 'support/**'
+      - '.github/tests/ownership.mm'
+      - '.github/tests/run_ownership.py'
+      - '.github/workflows/ownership.yml'
+  push:
+    branches: [main]
+    paths:
+      - '4DPlugin-vision.*'
+      - '4D Plugin API/**'
+      - 'support/**'
+      - '.github/tests/ownership.mm'
+      - '.github/tests/run_ownership.py'
+      - '.github/workflows/ownership.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ownership:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      - name: Prove immutable baseline fails for the confirmed defects
+        run: python3 .github/tests/run_ownership.py --source-ref 58010f27b2a4d0c2f687b7ffc905f4148057dc5b --expect-baseline-failure
+      - name: Run actual-source ownership regressions with ASan and UBSan
+        run: python3 .github/tests/run_ownership.py
+      - name: Preserve manual release and unsigned ownership CI boundaries
+        run: python3 -m unittest discover -s .github/tests -p test_repository_contract.py
