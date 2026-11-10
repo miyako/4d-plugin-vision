@@ -43,6 +43,7 @@ void PluginMain(PA_long32 selector, PA_PluginParameters params) {
 // object-valued property getter at all. Implemented locally rather than
 // editing that shared header (other plugins vendor the same file), mirroring
 // ob_get_c's own implementation exactly but for eVK_Object/PA_GetObjectVariable.
+// Returns an owning reference, as does ob_get_c.
 static PA_ObjectRef ob_get_o(PA_ObjectRef obj, const wchar_t *_key) {
 
     PA_ObjectRef value = NULL;
@@ -54,8 +55,14 @@ static PA_ObjectRef ob_get_o(PA_ObjectRef obj, const wchar_t *_key) {
 
         if(PA_HasObjectProperty(obj, &key)) {
             PA_Variable v = PA_GetObjectProperty(obj, &key);
+            if(PA_GetLastError() != eER_NoErr) {
+                PA_DisposeUnistring(&key);
+                return value;
+            }
             if(PA_GetVariableKind(v) == eVK_Object) {
                 value = PA_GetObjectVariable(v);
+            } else {
+                PA_ClearVariable(&v);
             }
         }
 
@@ -204,6 +211,7 @@ static void getParamsForImageRequest(PA_ObjectRef detect, VNImageBasedRequest *r
         rect.size.width = ob_get_n(regionOfInterest, L"width");
         rect.size.height = ob_get_n(regionOfInterest, L"height");
         request.regionOfInterest = rect;
+        PA_DisposeObject(regionOfInterest);
     }
 }
 
@@ -212,6 +220,9 @@ static NSArray *createStringArrayForParam(PA_CollectionRef col) {
     PA_long32 len = PA_GetCollectionLength(col);
     for(PA_long32 i = 0; i < len; ++i) {
         PA_Variable v = PA_GetCollectionElement(col, i);
+        if(PA_GetLastError() != eER_NoErr) {
+            continue;
+        }
         if(PA_GetVariableKind(v) == eVK_Unistring) {
             PA_Unistring ustr = PA_GetStringVariable(v);
             if(ustr.fLength) {
@@ -220,6 +231,7 @@ static NSArray *createStringArrayForParam(PA_CollectionRef col) {
                 [str release];
             }
         }
+        PA_ClearVariable(&v);
     }
     return arr;
 }
@@ -239,12 +251,14 @@ static void getParamsForTextRequest(PA_ObjectRef detect, VNRecognizeTextRequest 
     PA_CollectionRef recognitionLanguages = ob_get_c(detect, L"recognitionLanguages");
     if(recognitionLanguages) {
         NSArray *arr = createStringArrayForParam(recognitionLanguages);
+        PA_DisposeCollection(recognitionLanguages);
         request.recognitionLanguages = arr;
         [arr release];
     }
     PA_CollectionRef customWords = ob_get_c(detect, L"customWords");
     if(customWords) {
         NSArray *arr = createStringArrayForParam(customWords);
+        PA_DisposeCollection(customWords);
         request.customWords = arr;
         [arr release];
     }
@@ -281,6 +295,7 @@ static bool targetContains(PA_ObjectRef param, NSString *target) {
         PA_CollectionRef targets = ob_get_c(param, L"targets");
         if(targets) {
             NSArray *arr = createStringArrayForParam(targets);
+            PA_DisposeCollection(targets);
             NSPredicate *predicate = [NSPredicate predicateWithFormat:@"SELF LIKE %@", target];
             contains = [[arr filteredArrayUsingPredicate:predicate]count];
             [arr release];
